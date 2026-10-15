@@ -1,0 +1,32 @@
+owner: chals1029
+repo: orgchain-status
+user-agent: OrgChain-Status
+secrets: []
+customStatusWebsitePackage: "@upptime/status-page@1.17.0"
+
+sites:
+  - name: Website
+    slug: website
+    url: https://orgchain.tech/
+    icon: https://status.orgchain.tech/orgchain-logo.png
+    expectedStatusCodes: [200]
+    __dangerous__body_down_if_text_missing: OrgChain
+  - name: Application health
+    slug: application-health
+    url: https://orgchain.tech/up
+    icon: https://status.orgchain.tech/orgchain-logo.png
+    expectedStatusCodes: [200]
+
+status-website:
+  cname: status.orgchain.tech
+  name: OrgChain Status
+  theme: light
+  logoUrl: https://status.orgchain.tech/orgchain-logo.png
+  favicon: https://status.orgchain.tech/orgchain-logo.png
+  introTitle: OrgChain system status
+  introMessage: "Public availability checks. Sign-in, email delivery and private document submissions are not tested. Checks are scheduled every five minutes and can be delayed by GitHub."
+  navbar:
+    - title: Status
+      href: /
+    - title: OrgChain
+      href: https://orgchain.tech/
