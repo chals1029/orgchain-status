@@ -2,7 +2,6 @@ owner: chals1029
 repo: orgchain-status
 user-agent: OrgChain-Status
 secrets: []
-customStatusWebsitePackage: "@upptime/status-page@1.17.0"
 
 sites:
   - name: Website
