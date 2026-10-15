@@ -29,6 +29,8 @@ The publisher uses only the configured public repository, paginates public issue
 
 The application runs its private timer every five minutes and publishes only component status, `checkedAt` and `startedAt`; public requests never launch expensive probes. The publisher uses those actual timestamps, not a successful endpoint poll, for private current states. Missing, unreachable, stale, future or malformed private observations become unknown, without hiding an independently measured Website outage. Today's availability cannot be green when its private observation is unknown. Past readiness-signal failures are retained but are not diagnoses of an internal cause. No RPC addresses, credentials, node topology, student records, files or diagnostics enter the public snapshot.
 
+Upptime's curl transport includes HTTP response headers in the string evaluated by body checks. The readiness rules therefore accept HTTP header blocks followed by exactly the allowlisted JSON object, while still requiring HTTP 200 and operational/degraded state. HTML login/error pages and unknown/null observations cannot satisfy the guard. Verify transport changes against an actual `curl --include` response, not just a parsed JSON body.
+
 ## Local verification
 
 ```sh
