@@ -57,10 +57,15 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '22'
+      - name: Install graph renderer dependencies
+        if: github.event_name != 'schedule' || github.event.schedule == '17 1 * * *'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
       - name: Refresh response-time graphs
         if: github.event_name != 'schedule' || github.event.schedule == '17 1 * * *'
         run: |
-          npx --yes @upptime/graphs@1.2.31
+          npx --yes --foreground-scripts @upptime/graphs@1.2.31
           git add -- api graphs
           if ! git diff --cached --quiet; then
             git -c user.name="Upptime Bot" -c user.email="73812536+upptime-bot@users.noreply.github.com" commit -m "Update response-time graphs"
