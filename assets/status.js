@@ -211,6 +211,7 @@
       snapshot.components.some(
         (component) =>
           component.checkedAt &&
+          component.status !== "unknown" &&
           now - timestamp(component.checkedAt) > STALE_MS,
       ) ||
       snapshot.period.to !== new Date(now).toISOString().slice(0, 10)
@@ -242,7 +243,7 @@
         state: "outage",
         title: "Service disruption",
         description:
-          "One or more monitored services are experiencing an outage.",
+          "One or more availability or readiness signals report a disruption. This does not diagnose its internal cause.",
         symbol: "!",
       };
     if (components.some((component) => component.status === "degraded"))
@@ -250,7 +251,7 @@
         state: "degraded",
         title: "Degraded performance",
         description:
-          "One or more monitored services are experiencing a disruption.",
+          "One or more availability or readiness signals report degraded performance.",
         symbol: "!",
       };
     if (
@@ -293,7 +294,7 @@
       state: "operational",
       title: "All monitored systems operational",
       description:
-        "Website and application health checks are reporting normally.",
+        "All eight availability and readiness checks are reporting normally. Readiness is not proof of completed student operations.",
       symbol: "✓",
     };
   }
@@ -468,7 +469,7 @@
           "span",
           "muted",
           component.responseTimeMs === null
-            ? "Response: unavailable"
+            ? component.checkedAt ? `Checked ${timeText(component.checkedAt)}` : "Awaiting check"
             : `${Math.round(component.responseTimeMs)} ms latest response`,
         ),
       );
@@ -663,7 +664,7 @@
         null,
         day.status === "no-data"
           ? day.observedMinutes > 0
-            ? `${formatMinutes(day.observedMinutes)} were observed, but the source history cannot establish availability within this partial window. This is not an operational reading.`
+            ? `${formatMinutes(day.observedMinutes)} of monitoring history are available, but current readiness is unknown or the source cannot establish availability within this partial window. This is not an operational reading.`
             : "No observed monitoring window is available for this day. This is not an operational reading."
           : `${formatMinutes(day.observedMinutes)} observed in UTC. Availability is calculated only over that observed window, not automatically over a full day.`,
       ),

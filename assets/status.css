@@ -258,8 +258,11 @@ nav a {
   padding: 22px;
   min-width: 0;
 }
-.service-card + .service-card {
+.service-card:nth-child(even) {
   border-left: 1px solid var(--border);
+}
+.service-card:nth-child(n + 3) {
+  border-top: 1px solid var(--border);
 }
 .service-heading {
   display: flex;
@@ -846,7 +849,7 @@ dialog::backdrop {
   .service-card {
     padding: 20px;
   }
-  .service-card + .service-card {
+  .service-card:nth-child(n + 2) {
     border-left: 0;
     border-top: 1px solid var(--border);
   }

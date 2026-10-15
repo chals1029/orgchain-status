@@ -19,6 +19,48 @@ sites:
     url: https://orgchain.tech/up
     icon: https://status.orgchain.tech/orgchain-logo.png
     expectedStatusCodes: [200]
+  - name: Application services
+    slug: database
+    url: https://orgchain.tech/health/services/database
+    icon: https://status.orgchain.tech/orgchain-logo.png
+    expectedStatusCodes: [200]
+    __dangerous__body_degraded: '"status":"degraded"'
+    __dangerous__body_down_if_regex_missing: '^\s*\{\s*"status"\s*:\s*"(?:operational|degraded)"\s*,\s*"checkedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*,\s*"startedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*\}\s*$'
+  - name: Blockchain network
+    slug: blockchain
+    url: https://orgchain.tech/health/services/blockchain
+    icon: https://status.orgchain.tech/orgchain-logo.png
+    expectedStatusCodes: [200]
+    __dangerous__body_degraded: '"status":"degraded"'
+    __dangerous__body_down_if_regex_missing: '^\s*\{\s*"status"\s*:\s*"(?:operational|degraded)"\s*,\s*"checkedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*,\s*"startedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*\}\s*$'
+  - name: Private file storage
+    slug: private-storage
+    url: https://orgchain.tech/health/services/private-storage
+    icon: https://status.orgchain.tech/orgchain-logo.png
+    expectedStatusCodes: [200]
+    __dangerous__body_degraded: '"status":"degraded"'
+    __dangerous__body_down_if_regex_missing: '^\s*\{\s*"status"\s*:\s*"(?:operational|degraded)"\s*,\s*"checkedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*,\s*"startedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*\}\s*$'
+  - name: Document processing
+    slug: document-processing
+    url: https://orgchain.tech/health/services/document-processing
+    icon: https://status.orgchain.tech/orgchain-logo.png
+    expectedStatusCodes: [200]
+    __dangerous__body_degraded: '"status":"degraded"'
+    __dangerous__body_down_if_regex_missing: '^\s*\{\s*"status"\s*:\s*"(?:operational|degraded)"\s*,\s*"checkedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*,\s*"startedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*\}\s*$'
+  - name: Institutional sign-in gateway
+    slug: institutional-sign-in
+    url: https://orgchain.tech/health/services/institutional-sign-in
+    icon: https://status.orgchain.tech/orgchain-logo.png
+    expectedStatusCodes: [200]
+    __dangerous__body_degraded: '"status":"degraded"'
+    __dangerous__body_down_if_regex_missing: '^\s*\{\s*"status"\s*:\s*"(?:operational|degraded)"\s*,\s*"checkedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*,\s*"startedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*\}\s*$'
+  - name: Mail provider connectivity
+    slug: mail-provider
+    url: https://orgchain.tech/health/services/mail-provider
+    icon: https://status.orgchain.tech/orgchain-logo.png
+    expectedStatusCodes: [200]
+    __dangerous__body_degraded: '"status":"degraded"'
+    __dangerous__body_down_if_regex_missing: '^\s*\{\s*"status"\s*:\s*"(?:operational|degraded)"\s*,\s*"checkedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*,\s*"startedAt"\s*:\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})"\s*\}\s*$'
 
 status-website:
   cname: status.orgchain.tech

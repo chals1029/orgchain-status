@@ -8,6 +8,8 @@ const API = `https://api.github.com/repos/${REPOSITORY}`;
 const DAY = 86_400_000;
 const MINUTE = 60_000;
 const PERIOD_DAYS = 90;
+const SERVICE_FRESHNESS = 15 * MINUTE;
+const SERVICE_HEALTH_URL = "https://orgchain.tech/health/services";
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const COMPONENTS = new Map([
   [
@@ -23,6 +25,54 @@ const COMPONENTS = new Map([
       url: "https://orgchain.tech/up",
       description:
         "Public application health endpoint. Does not test sign-in or private workflows.",
+    },
+  ],
+  [
+    "database",
+    {
+      url: `${SERVICE_HEALTH_URL}/database`,
+      description:
+        "Application database readiness signal. Historical availability describes the signal, not student operations.",
+    },
+  ],
+  [
+    "blockchain",
+    {
+      url: `${SERVICE_HEALTH_URL}/blockchain`,
+      description:
+        "Blockchain network and expected contract readiness signal. No transactions are submitted.",
+    },
+  ],
+  [
+    "private-storage",
+    {
+      url: `${SERVICE_HEALTH_URL}/private-storage`,
+      description:
+        "Private file storage readiness signal using isolated checks, not student files.",
+    },
+  ],
+  [
+    "document-processing",
+    {
+      url: `${SERVICE_HEALTH_URL}/document-processing`,
+      description:
+        "Document processing readiness signal using a synthetic document, not live-user documents.",
+    },
+  ],
+  [
+    "institutional-sign-in",
+    {
+      url: `${SERVICE_HEALTH_URL}/institutional-sign-in`,
+      description:
+        "Institutional sign-in gateway availability signal. Does not establish a completed sign-in.",
+    },
+  ],
+  [
+    "mail-provider",
+    {
+      url: `${SERVICE_HEALTH_URL}/mail-provider`,
+      description:
+        "Mail-provider connectivity readiness signal. No email is sent and delivery is not verified.",
     },
   ],
 ]);
@@ -103,6 +153,38 @@ function validateSummary(summary) {
   }
   if (seen.size !== COMPONENTS.size)
     throw new Error("Missing configured component in summary");
+}
+
+// Only allowlisted coarse values cross the publication boundary. In particular,
+// endpoint poll times and provider response details are never probe results.
+function serviceReading(source, id, now) {
+  const value = source?.services?.[id];
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return { status: "unknown", started: null, checked: null };
+  const rawStart = timestamp(value.startedAt);
+  const rawCheck = timestamp(value.checkedAt);
+  const started = rawStart !== null && rawStart <= now ? rawStart : null;
+  const checked =
+    rawCheck !== null &&
+    rawCheck <= now &&
+    (started === null || rawCheck >= started)
+      ? rawCheck
+      : null;
+  const statuses = {
+    operational: "operational",
+    degraded: "degraded",
+    unavailable: "outage",
+    unknown: "unknown",
+  };
+  const status =
+    checked !== null &&
+    started !== null &&
+    now - checked <= SERVICE_FRESHNESS &&
+    typeof value.status === "string" &&
+    own(statuses, value.status)
+      ? statuses[value.status]
+      : "unknown";
+  return { status, started, checked };
 }
 
 // Upptime's history is flat. Extract only known scalar fields; do not interpret
@@ -281,12 +363,15 @@ function dayDowntime(ranges, from, to, daily, dayStart, dayKey) {
  * histories is an object or Map keyed by slug, containing flat YAML strings or
  * {startTime, lastUpdated, status?, responseTime?} objects (ISO date strings).
  * issues is an array of GitHub REST issue objects, with string/object labels.
+ * serviceHealth optionally contains the public /health/services aggregate.
+ * Missing or invalid readings affect private current states, not public checks.
  * now accepts a Date, epoch milliseconds, or ISO timestamp; no input is mutated.
  */
 export function buildSnapshot({
   summary,
   histories,
   issues,
+  serviceHealth,
   now = new Date(),
 }) {
   validateSummary(summary);
@@ -312,6 +397,10 @@ export function buildSnapshot({
     nowMs,
   );
   const components = summary.map((entry) => {
+    const privateService = !["website", "application-health"].includes(entry.slug);
+    const reading = privateService
+      ? serviceReading(serviceHealth, entry.slug, nowMs)
+      : null;
     const history = historyFields(
       histories instanceof Map
         ? histories.get(entry.slug)
@@ -333,10 +422,11 @@ export function buildSnapshot({
       degraded: "degraded",
     };
     const rawStatus = history.status ?? entry.status;
-    const latestStatus =
+    const historyStatus =
       observed && typeof rawStatus === "string" && own(statuses, rawStatus)
         ? statuses[rawStatus]
         : "unknown";
+    const latestStatus = privateService ? reading.status : historyStatus;
     const response =
       typeof history.responseTime === "number"
         ? history.responseTime
@@ -346,14 +436,18 @@ export function buildSnapshot({
           : null;
     let totalObserved = 0;
     let totalDown = 0;
-    let unknown = false;
+    let unknown = privateService && latestStatus === "unknown";
     const days = [];
     const ranges = intervals.get(entry.slug);
     for (let index = 0; index < PERIOD_DAYS; index++) {
       const dayStart = periodStart + index * DAY;
       const dayKey = date(dayStart);
       const from = observed ? Math.max(dayStart, started) : 0;
-      const to = observed ? Math.min(dayStart + DAY, checked) : 0;
+      const historyEnd =
+        privateService && dayStart === today && reading.checked !== null
+          ? Math.min(checked, reading.checked)
+          : checked;
+      const to = observed ? Math.min(dayStart + DAY, historyEnd) : 0;
       if (to <= from) {
         days.push({
           date: dayKey,
@@ -380,21 +474,29 @@ export function buildSnapshot({
         down === null ? "no-data" : down > 0 ? "outage" : "operational";
       // A latest failing check is real even if its status issue has not opened
       // yet. Do not invent an outage duration for that single observation.
+      const dayStatus =
+        privateService && dayStart === today ? latestStatus : historyStatus;
       if (
         down !== null &&
         checked >= dayStart &&
         checked < dayStart + DAY &&
-        ["outage", "degraded"].includes(latestStatus)
+        ["outage", "degraded"].includes(dayStatus)
       ) {
         status =
-          latestStatus === "outage" || status === "outage"
+          dayStatus === "outage" || status === "outage"
             ? "outage"
             : "degraded";
+      }
+      if (privateService && dayStart === today && latestStatus === "unknown") {
+        status = "no-data";
       }
       days.push({
         date: dayKey,
         status,
-        uptime,
+        uptime:
+          privateService && dayStart === today && latestStatus === "unknown"
+            ? null
+            : uptime,
         observedMinutes: duration / MINUTE,
       });
       totalObserved += duration;
@@ -407,9 +509,10 @@ export function buildSnapshot({
       description: COMPONENTS.get(entry.slug).description,
       url: COMPONENTS.get(entry.slug).url,
       status: latestStatus,
-      startedAt: iso(started),
-      checkedAt: iso(checked),
+      startedAt: iso(privateService ? reading.started : started),
+      checkedAt: iso(privateService ? reading.checked : checked),
       responseTimeMs:
+        !privateService &&
         checked !== null &&
         response !== null &&
         Number.isFinite(response) &&
@@ -495,6 +598,49 @@ async function publicIssues(token) {
   return [...issues.values()];
 }
 
+async function publicServiceHealth() {
+  // One credential-free TLS request; redirects cannot change the destination.
+  // Read a bounded body under the same deadline, and never publish raw errors.
+  try {
+    const response = await fetch(SERVICE_HEALTH_URL, {
+      headers: { Accept: "application/json" },
+      credentials: "omit",
+      redirect: "error",
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (
+      !response.ok ||
+      !/^application\/json(?:\s*;|$)/i.test(
+        response.headers.get("content-type") ?? "",
+      )
+    ) {
+      await response.body?.cancel();
+      return null;
+    }
+    const reader = response.body?.getReader();
+    if (!reader) return null;
+    const chunks = [];
+    let length = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        length += value.byteLength;
+        if (length > 16_384) {
+          await reader.cancel();
+          return null;
+        }
+        chunks.push(value);
+      }
+      return JSON.parse(Buffer.concat(chunks, length).toString("utf8"));
+    } finally {
+      reader.releaseLock();
+    }
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   const { values } = parseArgs({
     options: { root: { type: "string" }, output: { type: "string" } },
@@ -529,11 +675,15 @@ async function main() {
       ]),
     ),
   );
-  const issues = await publicIssues(process.env.GITHUB_TOKEN);
+  const [issues, serviceHealth] = await Promise.all([
+    publicIssues(process.env.GITHUB_TOKEN),
+    publicServiceHealth(),
+  ]);
   const snapshot = buildSnapshot({
     summary,
     histories,
     issues,
+    serviceHealth,
     now: new Date(),
   });
   await mkdir(dirname(output), { recursive: true });

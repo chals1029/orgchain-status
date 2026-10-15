@@ -4,6 +4,14 @@ import { buildSnapshot } from "../scripts/build-status.mjs";
 
 const now = "2026-01-10T12:10:00.000Z";
 const start = "2026-01-10T12:00:00.000Z";
+const privateServices = [
+  ["database", "Application services"],
+  ["blockchain", "Blockchain network"],
+  ["private-storage", "Private file storage"],
+  ["document-processing", "Document processing"],
+  ["institutional-sign-in", "Institutional sign-in gateway"],
+  ["mail-provider", "Mail provider connectivity"],
+];
 
 function fixture({
   started = start,
@@ -29,6 +37,13 @@ function fixture({
         status: "up",
         dailyMinutesDown: {},
       },
+      ...privateServices.map(([slug, name]) => ({
+        slug,
+        name,
+        url: `https://orgchain.tech/health/services/${slug}`,
+        status: "up",
+        dailyMinutesDown: {},
+      })),
     ],
     histories: {
       website: {
@@ -43,6 +58,25 @@ function fixture({
         status: "up",
         responseTime: 120,
       },
+      ...Object.fromEntries(
+        privateServices.map(([slug]) => [
+          slug,
+          {
+            startTime: start,
+            lastUpdated: now,
+            status: "up",
+            responseTime: 80,
+          },
+        ]),
+      ),
+    },
+    serviceHealth: {
+      services: Object.fromEntries(
+        privateServices.map(([slug]) => [
+          slug,
+          { status: "operational", checkedAt: now, startedAt: start },
+        ]),
+      ),
     },
     issues: [],
   };
@@ -211,4 +245,117 @@ test("publication rejects missing monitors, unsafe paths and non-public endpoint
     () => buildSnapshot(internal),
     /Unexpected monitored component/,
   );
+});
+
+test("missing private signals stay unknown without hiding an independent website outage or old history", () => {
+  for (const source of [undefined, null, {}, { services: {} }, "<html>Login</html>"]) {
+    const input = fixture({ status: "down" });
+    input.serviceHealth = source;
+    for (const [slug] of privateServices) {
+      input.histories[slug].startTime = "2026-01-08T00:00:00.000Z";
+    }
+    const snapshot = buildSnapshot(input);
+    assert.equal(snapshot.components.length, 8);
+    assert.equal(snapshot.components[0].status, "outage");
+    assert.equal(snapshot.components[1].status, "operational");
+    for (const component of snapshot.components.slice(2)) {
+      assert.equal(component.status, "unknown");
+      assert.equal(component.checkedAt, null);
+      assert.equal(component.startedAt, null);
+      assert.equal(component.days.at(-1).status, "no-data");
+      assert.equal(component.days.at(-1).uptime, null);
+      assert.equal(component.days.at(-2).status, "operational");
+      assert.equal(component.days.at(-2).uptime, 100);
+      assert.equal(component.days.at(-2).observedMinutes, 1440);
+      assert.equal(component.uptime, null);
+    }
+  }
+});
+
+test("stale, future and corrupt probe readings cannot borrow freshness from endpoint polls", () => {
+  const cases = [
+    { checkedAt: "2026-01-10T11:54:59.000Z" },
+    { checkedAt: "2026-01-10T12:10:00.001Z" },
+    { checkedAt: "2026-02-30T12:00:00.000Z" },
+    { checkedAt: null },
+    { startedAt: "2026-01-10T12:09:00.000Z" },
+    { startedAt: "2026-01-11T00:00:00.000Z" },
+    { startedAt: null },
+    { status: "up" },
+    { status: "unknown" },
+  ];
+  for (const invalid of cases) {
+    const input = fixture();
+    input.serviceHealth.services.database = {
+      status: "operational",
+      startedAt: "2026-01-10T11:00:00.000Z",
+      checkedAt: "2026-01-10T12:08:00.000Z",
+      ...invalid,
+    };
+    const snapshot = buildSnapshot(input);
+    const component = snapshot.components.find((item) => item.id === "database");
+    assert.equal(component.status, "unknown");
+    assert.equal(component.days.at(-1).status, "no-data");
+    assert.equal(component.days.at(-1).uptime, null);
+    assert.equal(component.uptime, null);
+    assert.equal(snapshot.components[0].status, "operational");
+    assert.equal(snapshot.components[3].status, "operational");
+  }
+  const input = fixture();
+  input.serviceHealth.services.database.checkedAt = "2026-01-10T11:55:00.000Z";
+  input.serviceHealth.services.database.startedAt = "2026-01-10T11:00:00.000Z";
+  const component = buildSnapshot(input).components[2];
+  assert.equal(component.status, "operational");
+  assert.equal(component.checkedAt, "2026-01-10T11:55:00.000Z");
+});
+
+test("current private states and timestamps come from probes, not contradictory readiness endpoint polls", () => {
+  for (const [sourceStatus, expected] of [
+    ["operational", "operational"],
+    ["degraded", "degraded"],
+    ["unavailable", "outage"],
+  ]) {
+    const input = fixture();
+    input.histories.database.status = sourceStatus === "operational" ? "down" : "up";
+    input.serviceHealth.services.database = {
+      status: sourceStatus,
+      startedAt: "2026-01-10T11:50:00.000Z",
+      checkedAt: "2026-01-10T12:08:00.000Z",
+      diagnostics: "PRIVATE-DIAGNOSTIC-MUST-NOT-BE-PUBLISHED",
+    };
+    const snapshot = buildSnapshot(input);
+    const component = snapshot.components.find((item) => item.id === "database");
+    assert.equal(component.status, expected);
+    assert.equal(component.checkedAt, "2026-01-10T12:08:00.000Z");
+    assert.equal(component.startedAt, "2026-01-10T11:50:00.000Z");
+    assert.equal(component.responseTimeMs, null);
+    assert.equal(component.days.at(-1).status, expected);
+    assert.equal(component.days.at(-1).observedMinutes, 8);
+    assert.equal(component.days.at(-1).uptime, 100);
+    assert.ok(!JSON.stringify(snapshot).includes("PRIVATE-DIAGNOSTIC"));
+  }
+});
+
+test("a delayed probe retains its real timestamps and historical readiness-signal failures", () => {
+  const input = fixture();
+  input.histories.database.startTime = "2026-01-09T00:00:00.000Z";
+  input.serviceHealth.services.database = {
+    status: "operational",
+    startedAt: "2026-01-09T00:00:00.000Z",
+    checkedAt: "2026-01-10T11:54:00.000Z",
+  };
+  input.issues = [
+    incident(80007, "2026-01-09T03:00:00.000Z", "2026-01-09T04:00:00.000Z", {
+      labels: [{ name: "status" }, { name: "database" }],
+    }),
+  ];
+  const component = buildSnapshot(input).components[2];
+  assert.equal(component.status, "unknown");
+  assert.equal(component.checkedAt, "2026-01-10T11:54:00.000Z");
+  assert.equal(component.startedAt, "2026-01-09T00:00:00.000Z");
+  assert.equal(component.days.at(-2).status, "outage");
+  closeTo(component.days.at(-2).uptime, 100 * (23 / 24));
+  assert.equal(component.days.at(-1).status, "no-data");
+  assert.equal(component.days.at(-1).uptime, null);
+  assert.equal(component.uptime, null);
 });
