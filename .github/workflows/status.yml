@@ -52,11 +52,20 @@ jobs:
         env:
           GH_PAT: ${{ github.token }}
           SECRETS_CONTEXT: '{}'
+      - name: Set up graph runtime
+        if: github.event_name != 'schedule' || github.event.schedule == '17 1 * * *'
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
       - name: Refresh response-time graphs
         if: github.event_name != 'schedule' || github.event.schedule == '17 1 * * *'
-        uses: upptime/uptime-monitor@a284d6064bcbf89db3f1e2a6c533d0e69111573b
-        with:
-          command: graphs
+        run: |
+          npx --yes @upptime/graphs@1.2.31
+          git add -- api graphs
+          if ! git diff --cached --quiet; then
+            git -c user.name="Upptime Bot" -c user.email="73812536+upptime-bot@users.noreply.github.com" commit -m "Update response-time graphs"
+            git push
+          fi
         env:
           GH_PAT: ${{ github.token }}
           SECRETS_CONTEXT: '{}'

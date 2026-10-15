@@ -2,6 +2,10 @@ owner: chals1029
 repo: orgchain-status
 user-agent: OrgChain-Status
 secrets: []
+skipDeleteIssues: true
+skipDescriptionUpdate: true
+skipTopicsUpdate: true
+skipHomepageUpdate: true
 
 sites:
   - name: Website
