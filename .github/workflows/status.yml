@@ -7,9 +7,13 @@ on:
       - .upptimerc.yml
       - .github/workflows/status.yml
       - assets/**
+      - scripts/**
+      - tests/**
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled]
   schedule:
-    - cron: '2-57/5 * * * *'
-    - cron: '17 1 * * *'
+    - cron: "2-57/5 * * * *"
+    - cron: "17 1 * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -36,7 +40,7 @@ jobs:
           command: update
         env:
           GH_PAT: ${{ github.token }}
-          SECRETS_CONTEXT: '{}'
+          SECRETS_CONTEXT: "{}"
       - name: Record response times
         if: github.event_name != 'schedule' || github.event.schedule == '17 1 * * *'
         uses: upptime/uptime-monitor@a284d6064bcbf89db3f1e2a6c533d0e69111573b
@@ -44,62 +48,44 @@ jobs:
           command: response-time
         env:
           GH_PAT: ${{ github.token }}
-          SECRETS_CONTEXT: '{}'
+          SECRETS_CONTEXT: "{}"
       - name: Refresh public summary
         uses: upptime/uptime-monitor@a284d6064bcbf89db3f1e2a6c533d0e69111573b
         with:
           command: summary
         env:
           GH_PAT: ${{ github.token }}
-          SECRETS_CONTEXT: '{}'
-      - name: Set up graph runtime
-        if: github.event_name != 'schedule' || github.event.schedule == '17 1 * * *'
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: '22'
-      - name: Install graph renderer dependencies
-        if: github.event_name != 'schedule' || github.event.schedule == '17 1 * * *'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
-      - name: Refresh response-time graphs
-        if: github.event_name != 'schedule' || github.event.schedule == '17 1 * * *'
-        run: |
-          npx --yes --foreground-scripts @upptime/graphs@1.2.31
-          git add -- api graphs
-          if ! git diff --cached --quiet; then
-            git -c user.name="Upptime Bot" -c user.email="73812536+upptime-bot@users.noreply.github.com" commit -m "Update response-time graphs"
-            git push
-          fi
-        env:
-          GH_PAT: ${{ github.token }}
-          SECRETS_CONTEXT: '{}'
+          SECRETS_CONTEXT: "{}"
 
   build:
     name: Build independent status website
     needs: monitor
-    if: github.event_name != 'schedule' || github.event.schedule == '17 1 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
+      issues: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: main
-          fetch-depth: 0
           persist-credentials: false
-      - name: Generate Upptime website
-        uses: upptime/uptime-monitor@a284d6064bcbf89db3f1e2a6c533d0e69111573b # v1.46.0
+      - name: Set up publisher runtime
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          command: site
+          node-version: "22"
+      - name: Verify availability history and client syntax
+        run: |
+          node --test
+          node --check assets/status.js
+      - name: Build public status snapshot
+        run: node scripts/build-status.mjs
         env:
-          GH_PAT: ${{ github.token }}
-          SECRETS_CONTEXT: '{}'
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Upload public website
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
-          path: site/status-page/__sapper__/export
+          path: assets
 
   deploy:
     name: Publish to GitHub Pages

@@ -23,13 +23,3 @@ sites:
 status-website:
   cname: status.orgchain.tech
   name: OrgChain Status
-  theme: light
-  logoUrl: https://status.orgchain.tech/orgchain-logo.png
-  favicon: https://status.orgchain.tech/orgchain-logo.png
-  introTitle: OrgChain system status
-  introMessage: "Public availability checks. Sign-in, email delivery and private document submissions are not tested. Checks are scheduled every five minutes and can be delayed by GitHub."
-  navbar:
-    - title: Status
-      href: /
-    - title: OrgChain
-      href: https://orgchain.tech/
