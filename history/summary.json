@@ -95,18 +95,18 @@
     "icon": "https://status.orgchain.tech/orgchain-logo.png",
     "slug": "document-processing",
     "status": "down",
-    "uptime": "71.28%",
+    "uptime": "69.41%",
     "uptimeDay": "0.00%",
-    "uptimeWeek": "71.28%",
-    "uptimeMonth": "71.28%",
-    "uptimeYear": "71.28%",
+    "uptimeWeek": "69.41%",
+    "uptimeMonth": "69.41%",
+    "uptimeYear": "69.41%",
     "time": 318,
     "timeDay": 254,
     "timeWeek": 318,
     "timeMonth": 318,
     "timeYear": 318,
     "dailyMinutesDown": {
-      "2026-10-18": 1168,
+      "2026-10-18": 1307,
       "2026-10-17": 314
     }
   },
