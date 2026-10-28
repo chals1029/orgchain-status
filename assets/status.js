@@ -243,7 +243,6 @@
     const started = performance.now();
     try {
       const response = await fetch(`${LIVE_URL}${path}`, {
-        method: marker ? "GET" : "HEAD",
         cache: "no-store",
         credentials: "omit",
         redirect: "error",
@@ -258,7 +257,7 @@
         if (!body?.includes(marker))
           return { status: "unknown", checkedAt: null, responseTimeMs: null };
       } else {
-        await response.body?.cancel();
+        await boundedText(response, 262_144);
       }
       return {
         status: "operational",
