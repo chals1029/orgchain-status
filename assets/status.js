@@ -219,7 +219,7 @@
     return data;
   }
 
-  async function boundedText(response, limit, marker) {
+  async function boundedText(response, limit) {
     const reader = response.body?.getReader();
     if (!reader) return null;
     const decoder = new TextDecoder();
@@ -232,7 +232,6 @@
         size += value.byteLength;
         if (size > limit) return null;
         text += decoder.decode(value, { stream: true });
-        if (marker && text.includes(marker)) return text;
       }
     } finally {
       await reader.cancel().catch(() => {});
@@ -244,6 +243,7 @@
     const started = performance.now();
     try {
       const response = await fetch(`${LIVE_URL}${path}`, {
+        method: marker ? "GET" : "HEAD",
         cache: "no-store",
         credentials: "omit",
         redirect: "error",
@@ -254,7 +254,7 @@
         return { status: "unknown", checkedAt: null, responseTimeMs: null };
       }
       if (marker) {
-        const body = await boundedText(response, 262_144, marker);
+        const body = await boundedText(response, 262_144);
         if (!body?.includes(marker))
           return { status: "unknown", checkedAt: null, responseTimeMs: null };
       } else {
