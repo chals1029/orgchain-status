@@ -359,3 +359,47 @@ test("a delayed probe retains its real timestamps and historical readiness-signa
   assert.equal(component.days.at(-1).uptime, null);
   assert.equal(component.uptime, null);
 });
+
+test("a real public check updates current status without extending historical observations", () => {
+  const input = fixture({ checked: "2026-01-10T12:02:00.000Z" });
+  input.publicChecks = {
+    website: {
+      status: "operational",
+      checkedAt: "2026-01-10T12:09:30.000Z",
+      responseTimeMs: 183,
+    },
+    "application-health": {
+      status: "operational",
+      checkedAt: "2026-01-10T12:09:31.000Z",
+      responseTimeMs: 121,
+    },
+  };
+  const component = website(input);
+  assert.equal(component.status, "operational");
+  assert.equal(component.checkedAt, "2026-01-10T12:09:30.000Z");
+  assert.equal(component.responseTimeMs, 183);
+  assert.equal(component.days.at(-1).observedMinutes, 2);
+  assert.equal(component.days.at(-1).uptime, 100);
+});
+
+test("missing, failed, stale or impossible public checks cannot report operational", () => {
+  for (const check of [
+    undefined,
+    { status: "unknown", checkedAt: now },
+    { status: "operational", checkedAt: "2026-01-10T11:54:59.000Z" },
+    { status: "operational", checkedAt: "2026-01-10T12:10:00.001Z" },
+    { status: "operational", checkedAt: "2026-01-10T11:59:00.000Z" },
+    { status: "operational", checkedAt: "2026-02-30T12:00:00.000Z" },
+  ]) {
+    const input = fixture();
+    input.publicChecks = { website: check };
+    const component = website(input);
+    assert.equal(component.status, "unknown");
+    assert.equal(component.responseTimeMs, null);
+  }
+});
+
+test("without a public poll the last persisted observation is not refreshed", () => {
+  const input = fixture({ checked: "2026-01-10T12:02:00.000Z" });
+  assert.equal(website(input).checkedAt, "2026-01-10T12:02:00.000Z");
+});

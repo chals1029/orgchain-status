@@ -8,9 +8,9 @@ This repository hosts OrgChain's independent GitHub Pages status website. The ap
 
 The custom static interface in `assets/` shows eight monitored services, a 90-day UTC availability strip, daily details, current notices and incident history. Service details use hash URLs such as `#service=website`; the former generated site's `/history/...` routes are not used.
 
-Days before monitoring began or after the last observation have no data, not guaranteed uptime. Partial days use the observed window; overlapping incident intervals are counted once. If an aggregate cannot establish partial-day availability, the result remains unknown. Current checks or snapshots older than 15 minutes, future timestamps and failed refreshes cannot display an all-operational summary.
+Days before monitoring began or after the last observation have no data, not guaranteed uptime. Partial days use the observed window; overlapping incident intervals are counted once. If an aggregate cannot establish partial-day availability, the result remains unknown. Stale, future, malformed or failed current checks cannot display an all-operational summary. Older incident and uptime history remains visible with its publication time.
 
-The browser fetches only same-origin `status.json`, refreshing every minute. No GitHub token or per-visitor GitHub API access is required. The visible interface has no provider credit footer.
+The browser refreshes the same-origin `status.json` and makes credential-free live requests to the public landing page, `/up` and `/health/services` every minute while visible. Only `https://status.orgchain.tech` can read these cross-origin responses. If direct checks fail, the affected status is unknown; a recent independently confirmed outage is retained. No GitHub token or per-visitor GitHub API access is required.
 
 ## Monitoring and publication
 
@@ -20,10 +20,10 @@ The `OrgChain Status` workflow:
 
 1. Checks availability and updates real status incidents and `history/` observations.
 2. Runs snapshot regression tests and client syntax checks.
-3. Uses `scripts/build-status.mjs` to produce `assets/status.json` from monitoring history, public status/maintenance issues and the credential-free aggregate `/health/services` snapshot.
+3. Uses `scripts/build-status.mjs` to produce `assets/status.json` from monitoring history, public status/maintenance issues, genuine current website checks and the credential-free aggregate `/health/services` snapshot.
 4. Publishes `assets/` directly to GitHub Pages.
 
-Availability checks and publication are scheduled every five minutes, but GitHub scheduling can be delayed. A daily/manual/configuration-triggered response-time recording is also retained. Public issue edits trigger publication so maintenance notices and incident updates can appear without waiting for the next schedule. A failed publisher retains the prior website; the interface marks old observations as delayed rather than inventing fresh results.
+Availability history and publication are scheduled every five minutes, but GitHub scheduling can be delayed and can leave gaps. The browser's independent current checks continue while history and incidents wait for the next publication; old historical data is labeled. A daily/manual/configuration-triggered response-time recording is also retained. Public issue edits trigger publication so maintenance notices and incident updates can appear without waiting for the next schedule.
 
 The publisher uses only the configured public repository, paginates public issues, strips hidden maintenance metadata from display text, and never embeds runtime credentials. GitHub Actions uses a short-lived repository-scoped token with separate monitoring, build and deployment permissions. Do not store a broad personal access token, application credentials, private logs or student data in this repository.
 

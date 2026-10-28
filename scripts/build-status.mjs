@@ -187,6 +187,26 @@ function serviceReading(source, id, now) {
   return { status, started, checked };
 }
 
+// Upptime only persists history on changes; a separate poll records current checks.
+function publicReading(value, started, now) {
+  const checked = timestamp(value?.checkedAt);
+  const valid =
+    started !== null &&
+    checked !== null &&
+    checked >= started &&
+    checked <= now &&
+    now - checked <= SERVICE_FRESHNESS;
+  const status =
+    valid && value?.status === "operational" ? "operational" : "unknown";
+  const response =
+    status === "operational" &&
+    Number.isFinite(value?.responseTimeMs) &&
+    value.responseTimeMs >= 0
+      ? value.responseTimeMs
+      : null;
+  return { status, checked: valid ? checked : null, response };
+}
+
 // Upptime's history is flat. Extract only known scalar fields; do not interpret
 // arbitrary YAML, generators, response bodies, codes, or diagnostic fields.
 function historyFields(value) {
@@ -364,7 +384,7 @@ function dayDowntime(ranges, from, to, daily, dayStart, dayKey) {
  * {startTime, lastUpdated, status?, responseTime?} objects (ISO date strings).
  * issues is an array of GitHub REST issue objects, with string/object labels.
  * serviceHealth optionally contains the public /health/services aggregate.
- * Missing or invalid readings affect private current states, not public checks.
+ * publicChecks optionally contains actual website and /up endpoint observations.
  * now accepts a Date, epoch milliseconds, or ISO timestamp; no input is mutated.
  */
 export function buildSnapshot({
@@ -372,6 +392,7 @@ export function buildSnapshot({
   histories,
   issues,
   serviceHealth,
+  publicChecks,
   now = new Date(),
 }) {
   validateSummary(summary);
@@ -426,7 +447,15 @@ export function buildSnapshot({
       observed && typeof rawStatus === "string" && own(statuses, rawStatus)
         ? statuses[rawStatus]
         : "unknown";
-    const latestStatus = privateService ? reading.status : historyStatus;
+    const publicCheck =
+      !privateService && publicChecks !== undefined
+        ? publicReading(publicChecks?.[entry.slug], started, nowMs)
+        : null;
+    const latestStatus = privateService
+      ? reading.status
+      : publicCheck
+        ? publicCheck.status
+        : historyStatus;
     const response =
       typeof history.responseTime === "number"
         ? history.responseTime
@@ -510,15 +539,14 @@ export function buildSnapshot({
       url: COMPONENTS.get(entry.slug).url,
       status: latestStatus,
       startedAt: iso(privateService ? reading.started : started),
-      checkedAt: iso(privateService ? reading.checked : checked),
-      responseTimeMs:
-        !privateService &&
-        checked !== null &&
-        response !== null &&
-        Number.isFinite(response) &&
-        response >= 0
-          ? response
-          : null,
+      checkedAt: iso(privateService ? reading.checked : publicCheck ? publicCheck.checked : checked),
+      responseTimeMs: privateService
+        ? null
+        : publicCheck
+          ? publicCheck.response
+          : checked !== null && response !== null && Number.isFinite(response) && response >= 0
+            ? response
+            : null,
       uptime:
         totalObserved > 0 && !unknown
           ? Math.max(0, Math.min(100, 100 * (1 - totalDown / totalObserved)))
@@ -641,6 +669,56 @@ async function publicServiceHealth() {
   }
 }
 
+async function publicAvailability() {
+  const checks = ["website", "application-health"];
+  return Object.fromEntries(
+    await Promise.all(checks.map(async (id) => {
+      const started = performance.now();
+      let operational = false;
+      try {
+        const response = await fetch(COMPONENTS.get(id).url, {
+          cache: "no-store",
+          credentials: "omit",
+          redirect: "error",
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (response.status === 200 && id === "website" && response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let text = "";
+          let bytes = 0;
+          try {
+            while (bytes <= 262_144) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              bytes += value.byteLength;
+              if (bytes > 262_144) break;
+              text += decoder.decode(value, { stream: true });
+              if (text.includes("OrgChain")) {
+                operational = true;
+                break;
+              }
+            }
+          } finally {
+            await reader.cancel();
+            reader.releaseLock();
+          }
+        } else {
+          operational = response.status === 200 && id === "application-health";
+          await response.body?.cancel();
+        }
+      } catch {
+        operational = false;
+      }
+      return [id, {
+        status: operational ? "operational" : "unknown",
+        checkedAt: new Date().toISOString(),
+        responseTimeMs: operational ? Math.round(performance.now() - started) : null,
+      }];
+    })),
+  );
+}
+
 async function main() {
   const { values } = parseArgs({
     options: { root: { type: "string" }, output: { type: "string" } },
@@ -675,15 +753,17 @@ async function main() {
       ]),
     ),
   );
-  const [issues, serviceHealth] = await Promise.all([
+  const [issues, serviceHealth, publicChecks] = await Promise.all([
     publicIssues(process.env.GITHUB_TOKEN),
     publicServiceHealth(),
+    publicAvailability(),
   ]);
   const snapshot = buildSnapshot({
     summary,
     histories,
     issues,
     serviceHealth,
+    publicChecks,
     now: new Date(),
   });
   await mkdir(dirname(output), { recursive: true });

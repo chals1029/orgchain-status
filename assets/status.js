@@ -4,6 +4,16 @@
   const REFRESH_MS = 60_000;
   const STALE_MS = 15 * 60_000;
   const DAY_MS = 86_400_000;
+  const LIVE_URL = "https://orgchain.tech";
+  const SERVICE_IDS = [
+    "database",
+    "blockchain",
+    "private-storage",
+    "document-processing",
+    "institutional-sign-in",
+    "mail-provider",
+  ];
+  const COMPONENT_IDS = ["website", "application-health", ...SERVICE_IDS];
   const $ = (id) => document.getElementById(id);
   const labels = {
     operational: "Operational",
@@ -43,6 +53,23 @@
 
   function timestamp(value) {
     return typeof value === "string" && value.trim() ? Date.parse(value) : NaN;
+  }
+
+  function strictTimestamp(value) {
+    if (typeof value !== "string") return NaN;
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+    if (!match) return NaN;
+    const [, year, month, day, hour, minute, second, zone] = match;
+    const date = new Date(0);
+    date.setUTCFullYear(Number(year), Number(month) - 1, Number(day));
+    if (
+      date.getUTCFullYear() !== Number(year) ||
+      date.getUTCMonth() !== Number(month) - 1 ||
+      date.getUTCDate() !== Number(day) ||
+      Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59 ||
+      (zone !== "Z" && (Number(zone.slice(1, 3)) > 23 || Number(zone.slice(4)) > 59))
+    ) return NaN;
+    return Date.parse(value);
   }
 
   function dateOnly(value) {
@@ -165,6 +192,8 @@
           throw new Error("Invalid daily observations");
       });
     }
+    if (ids.size !== COMPONENT_IDS.length || COMPONENT_IDS.some((id) => !ids.has(id)))
+      throw new Error("Missing monitored components");
     for (const incident of data.incidents) {
       if (
         !incident ||
@@ -190,6 +219,129 @@
     return data;
   }
 
+  async function boundedText(response, limit, marker) {
+    const reader = response.body?.getReader();
+    if (!reader) return null;
+    const decoder = new TextDecoder();
+    let text = "";
+    let size = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) return text + decoder.decode();
+        size += value.byteLength;
+        if (size > limit) return null;
+        text += decoder.decode(value, { stream: true });
+        if (marker && text.includes(marker)) return text;
+      }
+    } finally {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
+  }
+
+  async function observePublic(path, marker, signal) {
+    const started = performance.now();
+    try {
+      const response = await fetch(`${LIVE_URL}${path}`, {
+        cache: "no-store",
+        credentials: "omit",
+        redirect: "error",
+        signal,
+      });
+      if (response.status !== 200) {
+        await response.body?.cancel();
+        return { status: "unknown", checkedAt: null, responseTimeMs: null };
+      }
+      if (marker) {
+        const body = await boundedText(response, 262_144, marker);
+        if (!body?.includes(marker))
+          return { status: "unknown", checkedAt: null, responseTimeMs: null };
+      } else {
+        await response.body?.cancel();
+      }
+      return {
+        status: "operational",
+        checkedAt: new Date().toISOString(),
+        responseTimeMs: Math.round(performance.now() - started),
+      };
+    } catch {
+      return { status: "unknown", checkedAt: null, responseTimeMs: null };
+    }
+  }
+
+  async function observeServices(signal) {
+    try {
+      const response = await fetch(`${LIVE_URL}/health/services`, {
+        cache: "no-store",
+        credentials: "omit",
+        redirect: "error",
+        signal,
+        headers: { Accept: "application/json" },
+      });
+      if (
+        response.status !== 200 ||
+        !/^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type") ?? "")
+      ) {
+        await response.body?.cancel();
+        return null;
+      }
+      const text = await boundedText(response, 16_384);
+      return text === null ? null : JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
+  function currentService(value, now) {
+    const checked = strictTimestamp(value?.checkedAt);
+    const started = strictTimestamp(value?.startedAt);
+    const valid =
+      Number.isFinite(checked) && Number.isFinite(started) &&
+      started <= checked && checked <= now && started <= now;
+    const statuses = {
+      operational: "operational",
+      degraded: "degraded",
+      unavailable: "outage",
+      unknown: "unknown",
+    };
+    return {
+      status: valid && now - checked <= STALE_MS && Object.hasOwn(statuses, value?.status)
+        ? statuses[value.status]
+        : "unknown",
+      checkedAt: valid ? new Date(checked).toISOString() : null,
+      startedAt: valid ? new Date(started).toISOString() : null,
+      responseTimeMs: null,
+    };
+  }
+
+  async function updateCurrent(data, signal) {
+    const [website, application, services] = await Promise.all([
+      observePublic("/", "OrgChain", signal),
+      observePublic("/up", null, signal),
+      observeServices(signal),
+    ]);
+    const now = Date.now();
+    for (const component of data.components) {
+      const current = component.id === "website"
+        ? website
+        : component.id === "application-health"
+          ? application
+          : currentService(services?.services?.[component.id], now);
+      const previous = timestamp(component.checkedAt);
+      // Preserve a recent independently confirmed outage if the live check is unreachable.
+      if (current.status === "unknown" && component.status === "outage" &&
+          Number.isFinite(previous) && previous <= now && now - previous <= STALE_MS)
+        continue;
+      component.status = current.status;
+      component.checkedAt = current.checkedAt;
+      component.responseTimeMs = current.responseTimeMs;
+      if (SERVICE_IDS.includes(component.id) && current.startedAt)
+        component.startedAt = current.startedAt;
+    }
+    return data;
+  }
+
   function freshness(now = Date.now()) {
     if (!snapshot)
       return { fresh: false, message: "No monitoring snapshot is available." };
@@ -207,14 +359,12 @@
           "The snapshot contains future monitoring timestamps. Current availability cannot be confirmed.",
       };
     if (
-      now - timestamp(snapshot.generatedAt) > STALE_MS ||
       snapshot.components.some(
         (component) =>
           component.checkedAt &&
           component.status !== "unknown" &&
           now - timestamp(component.checkedAt) > STALE_MS,
-      ) ||
-      snapshot.period.to !== new Date(now).toISOString().slice(0, 10)
+      )
     )
       return {
         fresh: false,
@@ -330,7 +480,8 @@
     $("overall-title").textContent = state.title;
     $("overall-description").textContent = state.description;
     $("overall-icon").textContent = state.symbol;
-    $("retry").hidden = !fetchError && (!snapshot || health.fresh);
+    $("retry").hidden = !fetchError &&
+      (!snapshot || (health.fresh && snapshot.components.every((component) => component.status !== "unknown")));
     $("retry").disabled = fetching;
     $("retry").textContent = fetching ? "Retrying…" : "Retry now";
     if (!snapshot) return;
@@ -345,9 +496,12 @@
       ? `Last checked: ${timeText(new Date(oldestCheck).toISOString())}`
       : "Last checked: unavailable for one or more services";
     const lastKnown = fetchError || !health.fresh;
-    $("data-notice").hidden = !lastKnown;
-    $("data-notice").textContent =
-      `Showing last-known results. Snapshot updated ${timeText(snapshot.generatedAt)}.`;
+    const historyStale = Date.now() - timestamp(snapshot.generatedAt) > STALE_MS ||
+      snapshot.period.to !== new Date().toISOString().slice(0, 10);
+    $("data-notice").hidden = !lastKnown && !historyStale;
+    $("data-notice").textContent = lastKnown
+      ? `Showing last-known results. Snapshot updated ${timeText(snapshot.generatedAt)}.`
+      : `Current status is checked live. Uptime history and incidents were last updated ${timeText(snapshot.generatedAt)}.`;
   }
 
   function statusBadge(component) {
@@ -825,7 +979,7 @@
         headers: { Accept: "application/json" },
       });
       if (!response.ok) throw new Error("Snapshot request failed");
-      snapshot = validate(await response.json());
+      snapshot = await updateCurrent(validate(await response.json()), controller.signal);
       fetchError = false;
     } catch {
       fetchError = true;
