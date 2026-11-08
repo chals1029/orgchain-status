@@ -12,7 +12,7 @@
     "uptimeYear": "100.00%",
     "time": 498,
     "timeDay": 263,
-    "timeWeek": 454,
+    "timeWeek": 401,
     "timeMonth": 498,
     "timeYear": 498,
     "dailyMinutesDown": {}
@@ -30,7 +30,7 @@
     "uptimeYear": "100.00%",
     "time": 437,
     "timeDay": 253,
-    "timeWeek": 381,
+    "timeWeek": 384,
     "timeMonth": 437,
     "timeYear": 437,
     "dailyMinutesDown": {}
@@ -48,7 +48,7 @@
     "uptimeYear": "100.00%",
     "time": 386,
     "timeDay": 246,
-    "timeWeek": 338,
+    "timeWeek": 264,
     "timeMonth": 386,
     "timeYear": 386,
     "dailyMinutesDown": {}
@@ -66,7 +66,7 @@
     "uptimeYear": "100.00%",
     "time": 335,
     "timeDay": 605,
-    "timeWeek": 375,
+    "timeWeek": 376,
     "timeMonth": 335,
     "timeYear": 335,
     "dailyMinutesDown": {}
@@ -84,7 +84,7 @@
     "uptimeYear": "100.00%",
     "time": 344,
     "timeDay": 242,
-    "timeWeek": 377,
+    "timeWeek": 317,
     "timeMonth": 344,
     "timeYear": 344,
     "dailyMinutesDown": {}
@@ -95,14 +95,14 @@
     "icon": "https://status.orgchain.tech/orgchain-logo.png",
     "slug": "document-processing",
     "status": "up",
-    "uptime": "58.57%",
+    "uptime": "58.87%",
     "uptimeDay": "100.00%",
     "uptimeWeek": "100.00%",
-    "uptimeMonth": "58.57%",
-    "uptimeYear": "58.57%",
+    "uptimeMonth": "58.87%",
+    "uptimeYear": "58.87%",
     "time": 351,
     "timeDay": 246,
-    "timeWeek": 485,
+    "timeWeek": 443,
     "timeMonth": 351,
     "timeYear": 351,
     "dailyMinutesDown": {
@@ -132,7 +132,7 @@
     "uptimeYear": "100.00%",
     "time": 314,
     "timeDay": 252,
-    "timeWeek": 329,
+    "timeWeek": 325,
     "timeMonth": 314,
     "timeYear": 314,
     "dailyMinutesDown": {}
@@ -150,7 +150,7 @@
     "uptimeYear": "100.00%",
     "time": 320,
     "timeDay": 249,
-    "timeWeek": 276,
+    "timeWeek": 263,
     "timeMonth": 320,
     "timeYear": 320,
     "dailyMinutesDown": {}
