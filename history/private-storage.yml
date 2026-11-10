@@ -1,7 +1,7 @@
 url: https://orgchain.tech/health/services/private-storage
-status: up
-code: 200
-responseTime: 237
-lastUpdated: 2026-11-09T07:54:55.523Z
+status: down
+code: 503
+responseTime: 708
+lastUpdated: 2026-11-10T08:23:45.458Z
 startTime: 2026-10-15T05:28:43.744Z
 generator: Upptime <https://github.com/upptime/upptime>
