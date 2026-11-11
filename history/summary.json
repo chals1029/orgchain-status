@@ -77,18 +77,19 @@
     "icon": "https://status.orgchain.tech/orgchain-logo.png",
     "slug": "private-storage",
     "status": "down",
-    "uptime": "97.88%",
-    "uptimeDay": "43.33%",
-    "uptimeWeek": "91.90%",
-    "uptimeMonth": "97.88%",
-    "uptimeYear": "97.88%",
+    "uptime": "97.29%",
+    "uptimeDay": "27.20%",
+    "uptimeWeek": "89.60%",
+    "uptimeMonth": "97.29%",
+    "uptimeYear": "97.29%",
     "time": 349,
     "timeDay": 487,
     "timeWeek": 305,
     "timeMonth": 349,
     "timeYear": 349,
     "dailyMinutesDown": {
-      "2026-11-10": 816
+      "2026-11-11": 112,
+      "2026-11-10": 936
     }
   },
   {
@@ -97,11 +98,11 @@
     "icon": "https://status.orgchain.tech/orgchain-logo.png",
     "slug": "document-processing",
     "status": "down",
-    "uptime": "60.50%",
-    "uptimeDay": "43.34%",
-    "uptimeWeek": "91.91%",
-    "uptimeMonth": "60.50%",
-    "uptimeYear": "60.50%",
+    "uptime": "60.14%",
+    "uptimeDay": "27.21%",
+    "uptimeWeek": "89.60%",
+    "uptimeMonth": "60.14%",
+    "uptimeYear": "60.14%",
     "time": 357,
     "timeDay": 508,
     "timeWeek": 421,
@@ -119,7 +120,8 @@
       "2026-10-19": 1440,
       "2026-10-18": 1440,
       "2026-10-17": 314,
-      "2026-11-10": 816
+      "2026-11-11": 112,
+      "2026-11-10": 936
     }
   },
   {
