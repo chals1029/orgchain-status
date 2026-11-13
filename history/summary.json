@@ -88,7 +88,7 @@
     "timeMonth": 344,
     "timeYear": 344,
     "dailyMinutesDown": {
-      "2026-11-13": 1299,
+      "2026-11-13": 1300,
       "2026-11-12": 1440,
       "2026-11-11": 1440,
       "2026-11-10": 936
@@ -153,7 +153,7 @@
     "slug": "mail-provider",
     "status": "down",
     "uptime": "100.00%",
-    "uptimeDay": "99.99%",
+    "uptimeDay": "99.98%",
     "uptimeWeek": "100.00%",
     "uptimeMonth": "100.00%",
     "uptimeYear": "100.00%",
